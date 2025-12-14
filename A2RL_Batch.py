@@ -47,7 +47,7 @@ def auto_cropping(origin_image, verbose=False):
     batch_size = len(origin_image)
     
     if verbose:
-        print(f"Processing batch of {batch_size} images...")
+        print("Processing batch of {} images...".format(batch_size))
     
     # Initialize states
     terminals = np.zeros(batch_size)
@@ -80,7 +80,7 @@ def auto_cropping(origin_image, verbose=False):
         # Check if all images are done
         if np.sum(terminals) == batch_size:
             if verbose:
-                print(f"Completed in {step} steps")
+                print("Completed in {} steps".format(step))
             return bbox
         
         # Crop images for next iteration
@@ -90,7 +90,7 @@ def auto_cropping(origin_image, verbose=False):
 def process_single_image(image_path, save_path, verbose=True):
     """Process a single image."""
     if verbose:
-        print(f"Processing: {image_path}")
+        print("Processing: {}".format(image_path))
     
     # Load image
     im = io.imread(image_path).astype(np.float32) / 255
@@ -102,13 +102,13 @@ def process_single_image(image_path, save_path, verbose=True):
     io.imsave(save_path, im[ymin:ymax, xmin:xmax])
     
     if verbose:
-        print(f"Saved to: {save_path}")
+        print("Saved to: {}".format(save_path))
 
 
 def process_batch(image_paths, output_dir, verbose=True):
     """Process a batch of images."""
     if verbose:
-        print(f"\nProcessing batch of {len(image_paths)} images...")
+        print("\nProcessing batch of {} images...".format(len(image_paths)))
     
     # Load all images
     images = []
@@ -125,11 +125,11 @@ def process_batch(image_paths, output_dir, verbose=True):
     for path, bbox, orig_im in zip(image_paths, bboxes, original_images):
         xmin, ymin, xmax, ymax = bbox
         filename = os.path.basename(path)
-        save_path = os.path.join(output_dir, f'cropped_{filename}')
+        save_path = os.path.join(output_dir, 'cropped_{}'.format(filename))
         io.imsave(save_path, orig_im[ymin:ymax, xmin:xmax])
         
         if verbose:
-            print(f"  Saved: {save_path}")
+            print("  Saved: {}".format(save_path))
 
 
 def process_directory(input_dir, output_dir, batch_size=8, extensions=None, verbose=True):
@@ -143,16 +143,16 @@ def process_directory(input_dir, output_dir, batch_size=8, extensions=None, verb
     # Collect all image paths
     image_paths = []
     for ext in extensions:
-        image_paths.extend(glob.glob(os.path.join(input_dir, f'*.{ext}')))
-        image_paths.extend(glob.glob(os.path.join(input_dir, f'*.{ext.upper()}')))
+        image_paths.extend(glob.glob(os.path.join(input_dir, '*.{}'.format(ext))))
+        image_paths.extend(glob.glob(os.path.join(input_dir, '*.{}'.format(ext.upper()))))
     
     if len(image_paths) == 0:
-        print(f"No images found in {input_dir}")
+        print("No images found in {}".format(input_dir))
         return
     
-    print(f"Found {len(image_paths)} images in {input_dir}")
-    print(f"Output directory: {output_dir}")
-    print(f"Batch size: {batch_size}")
+    print("Found {} images in {}".format(len(image_paths), input_dir))
+    print("Output directory: {}".format(output_dir))
+    print("Batch size: {}".format(batch_size))
     
     # Process in batches
     num_batches = (len(image_paths) + batch_size - 1) // batch_size
@@ -163,8 +163,8 @@ def process_directory(input_dir, output_dir, batch_size=8, extensions=None, verb
         batch_paths = image_paths[i:i+batch_size]
         process_batch(batch_paths, output_dir, verbose=False)
     
-    print(f"\nAll {len(image_paths)} images processed successfully!")
-    print(f"Results saved to: {output_dir}")
+    print("\nAll {} images processed successfully!".format(len(image_paths)))
+    print("Results saved to: {}".format(output_dir))
 
 
 if __name__ == '__main__':
