@@ -13,6 +13,35 @@ from actions import command2action, generate_bbox, crop_input
 
 global_dtype = tf.float32
 
+def draw_bbox(img, bbox):
+    """Draw a red bounding box on the image."""
+    # Copy image to avoid modifying the original
+    img_with_box = img.copy()
+    
+    height, width = img_with_box.shape[:2]
+    xmin, ymin, xmax, ymax = bbox
+    
+    # Ensure coordinates are within bounds
+    xmin = max(0, min(xmin, width-1))
+    xmax = max(0, min(xmax, width-1))
+    ymin = max(0, min(ymin, height-1))
+    ymax = max(0, min(ymax, height-1))
+    
+    # Draw lines (red color: [1.0, 0.0, 0.0])
+    # Thickness of 2 pixels
+    thickness = 2
+    
+    # Top and Bottom
+    img_with_box[ymin:ymin+thickness, xmin:xmax, :] = [1.0, 0.0, 0.0]
+    img_with_box[ymax-thickness:ymax, xmin:xmax, :] = [1.0, 0.0, 0.0]
+    
+    # Left and Right
+    img_with_box[ymin:ymax, xmin:xmin+thickness, :] = [1.0, 0.0, 0.0]
+    img_with_box[ymin:ymax, xmax-thickness:xmax, :] = [1.0, 0.0, 0.0]
+    
+    return img_with_box
+
+
 # Load pre-trained model
 print("Loading pre-trained model...")
 with open('vfn_rl.pkl', 'rb') as f:
@@ -33,12 +62,14 @@ sess = tf.Session()
 print("Model loaded successfully!")
 
 
-def auto_cropping(origin_image, verbose=False):
+def auto_cropping(origin_image, image_names=None, temp_dir=None, verbose=False):
     """
     Perform automatic cropping on a batch of images.
     
     Args:
         origin_image: List of numpy arrays (images)
+        image_names: List of filenames (optional, for saving intermediate steps)
+        temp_dir: Directory to save intermediate steps (optional)
         verbose: Print step information
     
     Returns:
@@ -77,6 +108,26 @@ def auto_cropping(origin_image, verbose=False):
         ratios, terminals = command2action(action_np, ratios, terminals)
         bbox = generate_bbox(origin_image, ratios)
         
+        # Save intermediate steps if requested
+        if temp_dir and image_names:
+            for idx, (im, bb, name) in enumerate(zip(origin_image, bbox, image_names)):
+                # Only save if this image is not yet terminal (or save all? usually save all until done)
+                # But terminals update happens before this.
+                # Let's save the current state for all images.
+                
+                # Recover original image range [0, 1]
+                vis_im = im + 0.5
+                vis_im = draw_bbox(vis_im, bb)
+                
+                # Create directory for this image
+                img_temp_dir = os.path.join(temp_dir, os.path.splitext(name)[0])
+                os.makedirs(img_temp_dir, exist_ok=True)
+                
+                # Save step image
+                step_path = os.path.join(img_temp_dir, 'step_{:03d}.jpg'.format(step))
+                io.imsave(step_path, vis_im)
+
+        
         # Check if all images are done
         if np.sum(terminals) == batch_size:
             if verbose:
@@ -96,7 +147,9 @@ def process_single_image(image_path, save_path, verbose=True):
     im = io.imread(image_path).astype(np.float32) / 255
     
     # Perform cropping
-    xmin, ymin, xmax, ymax = auto_cropping([im - 0.5], verbose=verbose)[0]
+    image_name = os.path.basename(image_path)
+    temp_dir = os.path.join(os.path.dirname(save_path), 'cropped_temp')
+    xmin, ymin, xmax, ymax = auto_cropping([im - 0.5], image_names=[image_name], temp_dir=temp_dir, verbose=verbose)[0]
     
     # Save result
     io.imsave(save_path, im[ymin:ymax, xmin:xmax])
@@ -119,7 +172,9 @@ def process_batch(image_paths, output_dir, verbose=True):
         images.append(im - 0.5)
     
     # Perform batch cropping
-    bboxes = auto_cropping(images, verbose=verbose)
+    image_names = [os.path.basename(p) for p in image_paths]
+    temp_dir = os.path.join(output_dir, 'cropped_temp')
+    bboxes = auto_cropping(images, image_names=image_names, temp_dir=temp_dir, verbose=verbose)
     
     # Save results
     for path, bbox, orig_im in zip(image_paths, bboxes, original_images):
